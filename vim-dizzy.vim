@@ -50,7 +50,13 @@ function! ShuffleFile() abort
 endfunction
 
 
-set updatetime=5000
+
+let s:popup = 0
+
+function! s:OnPopupClose(timer, popup, result) abort
+  call timer_stop(a:timer)
+  let s:popup = 0
+endfunction
 
 function! s:StopOnKey(popup, key) abort
   if a:key !=# "\<CursorHold>"
@@ -64,18 +70,50 @@ function! s:StartShuffle() abort
   let popup = popup_create(getline(1, '$'), {
         \ 'line': row, 'col': col, 'minwidth': winwidth(0),
         \ 'minheight': winheight(0), 'maxheight': winheight(0),
-        \ 'wrap': 0, 'scrollbar': 0, 'filter': function('s:StopOnKey'),
+        \ 'wrap': 0, 'scrollbar': 0,
+        \ 'filter': function('s:StopOnKey'),
         \ 'highlight': 'Normal',
         \ })
+  let s:popup = popup
 
   call win_execute(popup, 'setlocal modifiable | call ShuffleFile()')
+
   let timer = timer_start(100,
         \ {id -> win_execute(popup, 'call ShuffleFile() | redraw')},
         \ {'repeat': -1})
-  call popup_setoptions(popup, {'callback': {id, result -> timer_stop(timer)}})
+
+  call popup_setoptions(popup, {
+        \ 'callback': function('s:OnPopupClose', [timer]),
+        \ })
 endfunction
 
-augroup IdleShuffle
-  autocmd!
-  autocmd CursorHold,CursorHoldI * call <SID>StartShuffle()
-augroup END
+
+function! s:EnableShuffle() abort
+  if exists('s:old_updatetime')
+    return
+  endif
+
+  let s:old_updatetime = &updatetime
+  set updatetime=5000
+
+  augroup IdleShuffle
+    autocmd!
+    autocmd CursorHold,CursorHoldI * call <SID>StartShuffle()
+  augroup END
+endfunction
+
+function! s:DisableShuffle() abort
+  if !exists('s:old_updatetime')
+    return
+  endif
+
+  autocmd! IdleShuffle
+  if s:popup != 0
+    call popup_close(s:popup)
+  endif
+  let &updatetime = s:old_updatetime
+  unlet s:old_updatetime
+endfunction
+
+command! -nargs=0 ShuffleOn call <SID>EnableShuffle()
+command! -nargs=0 ShuffleOff call <SID>DisableShuffle()
