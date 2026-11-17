@@ -2,6 +2,8 @@
 Just one more useless vim plugin.
 Shuffles the text in the current window after 5 seconds of inactivity.
 
+![vim-dizzy demo](demo.gif)
+
 ## Installation via VimPlug
 
 Add this line between `plug#begin()` and `plug#end()` in your `~/.vimrc`:
